@@ -133,7 +133,7 @@ export function App() {
           <Map mapStyle={mapStyle} reuseMaps />
         </DeckGL>
 
-        <SvgCellOverlay cells={fusion.cells} maxCount={maxCount} maxMean={maxMean} onHover={setActiveCell} />
+        <SvgCellOverlay cells={fusion.cells} maxCount={maxCount} maxMean={maxMean} />
 
         <div className="brand-panel">
           <div>
@@ -239,13 +239,11 @@ export function App() {
 function SvgCellOverlay({
   cells,
   maxCount,
-  maxMean,
-  onHover
+  maxMean
 }: {
   cells: CellAggregate[];
   maxCount: number;
   maxMean: number;
-  onHover: (cell: CellAggregate | null) => void;
 }) {
   return (
     <svg className="svg-cell-overlay" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
@@ -268,8 +266,6 @@ function SvgCellOverlay({
               fillOpacity={opacity}
               stroke="rgba(244,249,255,0.78)"
               strokeWidth={2}
-              onMouseEnter={() => onHover(cell)}
-              onMouseLeave={() => onHover(null)}
             />
           );
         })}
