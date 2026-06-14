@@ -1,0 +1,33 @@
+{
+  "name": "@terrafuse/web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc -b && vite build",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@deck.gl/core": "^9.2.2",
+    "@deck.gl/geo-layers": "^9.2.2",
+    "@deck.gl/layers": "^9.2.2",
+    "@deck.gl/react": "^9.2.2",
+    "@terrafuse/core": "file:../../packages/core",
+    "h3-js": "^4.3.0",
+    "lucide-react": "^0.468.0",
+    "maplibre-gl": "^5.9.0",
+    "papaparse": "^5.5.3",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-map-gl": "^8.1.0"
+  },
+  "devDependencies": {
+    "@types/papaparse": "^5.3.16",
+    "@types/react": "^19.2.6",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "vite": "^7.2.6"
+  }
+}
