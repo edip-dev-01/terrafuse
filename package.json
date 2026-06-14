@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "description": "Open-source geospatial fusion for DGGS-native analysis and common operating pictures.",
+  "license": "Apache-2.0",
   "type": "module",
   "workspaces": [
     "apps/*",
