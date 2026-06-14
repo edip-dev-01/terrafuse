@@ -1,8 +1,4 @@
-import DeckGL from "@deck.gl/react";
-import { PolygonLayer } from "@deck.gl/layers";
-import Map from "react-map-gl/maplibre";
 import Papa from "papaparse";
-import { cellToBoundary } from "h3-js";
 import {
   Activity,
   BarChart3,
@@ -25,8 +21,7 @@ import {
   RawRecord,
   TerraFuseDataset
 } from "@terrafuse/core";
-
-const mapStyle = "https://demotiles.maplibre.org/style.json";
+import { GlobeWorkspace } from "./GlobeWorkspace";
 
 const initialDatasets = [
   datasetFromRecords("Field observations", [
@@ -47,39 +42,13 @@ const initialDatasets = [
 
 export function App() {
   const [datasets, setDatasets] = useState<TerraFuseDataset[]>(initialDatasets);
-  const [resolution, setResolution] = useState(8);
+  const [resolution, setResolution] = useState(4);
   const [activeCell, setActiveCell] = useState<CellAggregate | null>(null);
   const [isCopMode, setIsCopMode] = useState(false);
   const [dropState, setDropState] = useState<"idle" | "hover" | "error">("idle");
   const [message, setMessage] = useState("Drop CSV, GeoJSON, or JSON.");
 
   const fusion = useMemo(() => fuseDatasets(datasets, resolution), [datasets, resolution]);
-  const maxCount = Math.max(1, ...fusion.cells.map((cell) => cell.count));
-  const maxMean = Math.max(1, ...fusion.cells.map((cell) => cell.mean));
-
-  const layers = useMemo(
-    () => [
-      new PolygonLayer<CellAggregate>({
-        id: "terrafuse-h3-fusion",
-        data: fusion.cells,
-        pickable: true,
-        extruded: true,
-        elevationScale: isCopMode ? 80 : 35,
-        getPolygon: (cell) => cellToBoundary(cell.cell).map(([lat, lon]) => [lon, lat]),
-        getElevation: (cell) => 40 + (cell.count / maxCount) * 900,
-        getFillColor: (cell) => {
-          const shared = Object.keys(cell.datasets).length > 1;
-          const intensity = Math.min(255, 80 + Math.round((cell.mean / maxMean) * 150));
-          return shared ? [245, intensity, 72, 205] : [45, 170, 220, 185];
-        },
-        getLineColor: [244, 249, 255, 180],
-        getLineWidth: 2,
-        lineWidthMinPixels: 1,
-        onHover: (info) => setActiveCell((info.object as CellAggregate | undefined) ?? null)
-      })
-    ],
-    [fusion.cells, isCopMode, maxCount, maxMean]
-  );
 
   async function ingestFiles(fileList: FileList | File[]) {
     const files = [...fileList];
@@ -119,21 +88,7 @@ export function App() {
   return (
     <main className={isCopMode ? "app cop-mode" : "app"} onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
       <section className="map-stage" onDragEnter={() => setDropState("hover")}>
-        <DeckGL
-          initialViewState={{
-            longitude: -123.12,
-            latitude: 49.26,
-            zoom: 10,
-            pitch: 45,
-            bearing: -18
-          }}
-          controller
-          layers={layers}
-        >
-          <Map mapStyle={mapStyle} reuseMaps />
-        </DeckGL>
-
-        <SvgCellOverlay cells={fusion.cells} maxCount={maxCount} maxMean={maxMean} />
+        <GlobeWorkspace cells={fusion.cells} onHover={setActiveCell} />
 
         <div className="brand-panel">
           <div>
@@ -162,6 +117,8 @@ export function App() {
           <input type="file" multiple accept=".csv,.json,.geojson,application/json,text/csv" onChange={onFileInput} />
           <span>{message}</span>
         </label>
+
+        <div className="map-attribution">Drag to rotate. Mouse wheel or trackpad pinch to zoom. H3 cells are anchored by latitude/longitude.</div>
       </section>
 
       <aside className="control-rail">
@@ -236,44 +193,6 @@ export function App() {
   );
 }
 
-function SvgCellOverlay({
-  cells,
-  maxCount,
-  maxMean
-}: {
-  cells: CellAggregate[];
-  maxCount: number;
-  maxMean: number;
-}) {
-  return (
-    <svg className="svg-cell-overlay" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      <g>
-        {cells.map((cell) => {
-          const polygon = cellToBoundary(cell.cell)
-            .map(([lat, lon]) => projectVancouver(lon, lat))
-            .map(([x, y]) => `${x},${y}`)
-            .join(" ");
-          const shared = Object.keys(cell.datasets).length > 1;
-          const opacity = 0.42 + (cell.count / maxCount) * 0.28;
-          const meanBoost = Math.round((cell.mean / maxMean) * 80);
-          const fill = shared ? `rgb(245 ${130 + meanBoost} 72)` : "rgb(45 170 220)";
-
-          return (
-            <polygon
-              key={cell.cell}
-              points={polygon}
-              fill={fill}
-              fillOpacity={opacity}
-              stroke="rgba(244,249,255,0.78)"
-              strokeWidth={2}
-            />
-          );
-        })}
-      </g>
-    </svg>
-  );
-}
-
 function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <article className="metric">
@@ -282,12 +201,6 @@ function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; 
       <strong>{value}</strong>
     </article>
   );
-}
-
-function projectVancouver(lon: number, lat: number): [number, number] {
-  const centerLon = -123.12;
-  const centerLat = 49.26;
-  return [500 + (lon - centerLon) * 9800, 510 - (lat - centerLat) * 13800];
 }
 
 async function parseFile(file: File): Promise<RawRecord[]> {
