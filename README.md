@@ -10,6 +10,8 @@ TerraFuse is an early prototype of a drag-and-drop web environment for geospatia
 - Auto-detect latitude/longitude, value, timestamp, and category-like fields.
 - Convert records into H3 cells at selectable resolution.
 - Render fused cell layers as geospatial polygons on a Cesium globe with an OpenStreetMap basemap.
+- Toggle individual datasets on/off before fusion.
+- Switch between street and satellite basemaps.
 - Compare uploaded datasets by shared cell and fused score.
 - Switch into a touch-oriented common operating picture layout.
 

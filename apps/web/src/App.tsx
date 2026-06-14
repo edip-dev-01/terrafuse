@@ -4,11 +4,14 @@ import {
   BarChart3,
   Database,
   Eye,
+  EyeOff,
   FileUp,
   Layers3,
+  Map,
   Maximize2,
   RadioTower,
   RotateCcw,
+  Satellite,
   SlidersHorizontal,
   Sparkles
 } from "lucide-react";
@@ -21,7 +24,7 @@ import {
   RawRecord,
   TerraFuseDataset
 } from "@terrafuse/core";
-import { GlobeWorkspace } from "./GlobeWorkspace";
+import { BasemapStyle, GlobeWorkspace } from "./GlobeWorkspace";
 
 const initialDatasets = [
   datasetFromRecords("Field observations", [
@@ -42,13 +45,19 @@ const initialDatasets = [
 
 export function App() {
   const [datasets, setDatasets] = useState<TerraFuseDataset[]>(initialDatasets);
+  const [visibleDatasetIds, setVisibleDatasetIds] = useState(() => new Set(initialDatasets.map((dataset) => dataset.id)));
+  const [basemap, setBasemap] = useState<BasemapStyle>("street");
   const [resolution, setResolution] = useState(4);
   const [activeCell, setActiveCell] = useState<CellAggregate | null>(null);
   const [isCopMode, setIsCopMode] = useState(false);
   const [dropState, setDropState] = useState<"idle" | "hover" | "error">("idle");
   const [message, setMessage] = useState("Drop CSV, GeoJSON, or JSON.");
 
-  const fusion = useMemo(() => fuseDatasets(datasets, resolution), [datasets, resolution]);
+  const visibleDatasets = useMemo(
+    () => datasets.filter((dataset) => visibleDatasetIds.has(dataset.id)),
+    [datasets, visibleDatasetIds]
+  );
+  const fusion = useMemo(() => fuseDatasets(visibleDatasets, resolution), [visibleDatasets, resolution]);
 
   async function ingestFiles(fileList: FileList | File[]) {
     const files = [...fileList];
@@ -69,6 +78,7 @@ export function App() {
     }
 
     setDatasets((current) => [...current, ...parsed]);
+    setVisibleDatasetIds((current) => new Set([...current, ...parsed.map((dataset) => dataset.id)]));
     setDropState("idle");
     setMessage(`Added ${parsed.length} dataset${parsed.length === 1 ? "" : "s"} to the fusion workspace.`);
   }
@@ -85,10 +95,29 @@ export function App() {
     }
   }
 
+  function setDatasetVisibility(datasetId: string, visible: boolean) {
+    setActiveCell(null);
+    setVisibleDatasetIds((current) => {
+      const next = new Set(current);
+      if (visible) {
+        next.add(datasetId);
+      } else {
+        next.delete(datasetId);
+      }
+      return next;
+    });
+  }
+
+  function resetDemoData() {
+    setDatasets(initialDatasets);
+    setVisibleDatasetIds(new Set(initialDatasets.map((dataset) => dataset.id)));
+    setActiveCell(null);
+  }
+
   return (
     <main className={isCopMode ? "app cop-mode" : "app"} onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
       <section className="map-stage" onDragEnter={() => setDropState("hover")}>
-        <GlobeWorkspace cells={fusion.cells} onHover={setActiveCell} />
+        <GlobeWorkspace basemap={basemap} cells={fusion.cells} onHover={setActiveCell} />
 
         <div className="brand-panel">
           <div>
@@ -158,20 +187,58 @@ export function App() {
 
         <section className="tool-panel">
           <div className="panel-title">
+            <Map size={18} />
+            <h3>Basemap</h3>
+          </div>
+          <div className="segmented-control" role="group" aria-label="Basemap style">
+            <button
+              className={basemap === "street" ? "active" : ""}
+              type="button"
+              onClick={() => setBasemap("street")}
+              title="Use OpenStreetMap street basemap"
+            >
+              <Map size={16} />
+              Street
+            </button>
+            <button
+              className={basemap === "satellite" ? "active" : ""}
+              type="button"
+              onClick={() => setBasemap("satellite")}
+              title="Use Esri World Imagery satellite basemap"
+            >
+              <Satellite size={16} />
+              Satellite
+            </button>
+          </div>
+        </section>
+
+        <section className="tool-panel">
+          <div className="panel-title">
             <BarChart3 size={18} />
             <h3>Datasets</h3>
           </div>
           <div className="dataset-list">
-            {datasets.map((dataset) => (
-              <article key={dataset.id} className="dataset-card">
-                <strong>{dataset.name}</strong>
-                <span>{dataset.records.length} rows</span>
-                <small>
-                  {dataset.schema.latField ?? "?"}/{dataset.schema.lonField ?? "?"}
-                  {dataset.schema.valueField ? `, value: ${dataset.schema.valueField}` : ""}
-                </small>
-              </article>
-            ))}
+            {datasets.map((dataset) => {
+              const isVisible = visibleDatasetIds.has(dataset.id);
+              return (
+                <article key={dataset.id} className={isVisible ? "dataset-card" : "dataset-card muted"}>
+                  <label className="dataset-toggle">
+                    <input
+                      type="checkbox"
+                      checked={isVisible}
+                      onChange={(event) => setDatasetVisibility(dataset.id, event.target.checked)}
+                    />
+                    {isVisible ? <Eye size={17} /> : <EyeOff size={17} />}
+                    <strong>{dataset.name}</strong>
+                  </label>
+                  <span>{dataset.records.length} rows</span>
+                  <small>
+                    {dataset.schema.latField ?? "?"}/{dataset.schema.lonField ?? "?"}
+                    {dataset.schema.valueField ? `, value: ${dataset.schema.valueField}` : ""}
+                  </small>
+                </article>
+              );
+            })}
           </div>
         </section>
 
@@ -183,7 +250,7 @@ export function App() {
           <button className="primary-button" type="button" onClick={() => setIsCopMode((value) => !value)}>
             {isCopMode ? "Return to analyst workspace" : "Open touch COP mode"}
           </button>
-          <button className="secondary-button" type="button" onClick={() => setDatasets(initialDatasets)}>
+          <button className="secondary-button" type="button" onClick={resetDemoData}>
             <RotateCcw size={16} />
             Reset demo data
           </button>

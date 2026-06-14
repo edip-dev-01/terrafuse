@@ -1,6 +1,7 @@
 import { cellToBoundary, cellToLatLng } from "h3-js";
 import { useEffect, useRef } from "react";
 import {
+  ArcGisMapServerImageryProvider,
   Cartesian2,
   Cartesian3,
   Color,
@@ -20,7 +21,10 @@ import {
 import "cesium/Build/Cesium/Widgets/widgets.css";
 import { CellAggregate } from "@terrafuse/core";
 
+export type BasemapStyle = "street" | "satellite";
+
 type GlobeWorkspaceProps = {
+  basemap: BasemapStyle;
   cells: CellAggregate[];
   onHover: (cell: CellAggregate | null) => void;
 };
@@ -29,9 +33,10 @@ const vancouver = { lat: 49.2827, lon: -123.1207 };
 
 Ion.defaultAccessToken = "";
 
-export function GlobeWorkspace({ cells, onHover }: GlobeWorkspaceProps) {
+export function GlobeWorkspace({ basemap, cells, onHover }: GlobeWorkspaceProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const viewerRef = useRef<Viewer | null>(null);
+  const basemapLayerRef = useRef<ImageryLayer | null>(null);
   const cellLookupRef = useRef(new Map<string, CellAggregate>());
   const onHoverRef = useRef(onHover);
 
@@ -47,12 +52,7 @@ export function GlobeWorkspace({ cells, onHover }: GlobeWorkspaceProps) {
 
     const viewer = new Viewer(host, {
       animation: false,
-      baseLayer: new ImageryLayer(
-        new OpenStreetMapImageryProvider({
-          url: "https://tile.openstreetmap.org/",
-          credit: "© OpenStreetMap contributors"
-        })
-      ),
+      baseLayer: false,
       baseLayerPicker: false,
       fullscreenButton: false,
       geocoder: false,
@@ -93,9 +93,26 @@ export function GlobeWorkspace({ cells, onHover }: GlobeWorkspaceProps) {
       handler.destroy();
       viewer.destroy();
       viewerRef.current = null;
+      basemapLayerRef.current = null;
       cellLookupRef.current.clear();
     };
   }, []);
+
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) {
+      return;
+    }
+
+    const nextLayer = createBasemapLayer(basemap);
+    const currentLayer = basemapLayerRef.current;
+    if (currentLayer) {
+      viewer.imageryLayers.remove(currentLayer, true);
+    }
+
+    viewer.imageryLayers.add(nextLayer, 0);
+    basemapLayerRef.current = nextLayer;
+  }, [basemap]);
 
   useEffect(() => {
     const viewer = viewerRef.current;
@@ -115,6 +132,23 @@ export function GlobeWorkspace({ cells, onHover }: GlobeWorkspaceProps) {
   }, [cells]);
 
   return <div className="globe-workspace" ref={hostRef} aria-label="Interactive Cesium TerraFuse globe" />;
+}
+
+function createBasemapLayer(basemap: BasemapStyle) {
+  if (basemap === "satellite") {
+    return ImageryLayer.fromProviderAsync(
+      ArcGisMapServerImageryProvider.fromUrl("https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer", {
+        credit: "Esri, Maxar, Earthstar Geographics, and the GIS User Community"
+      })
+    );
+  }
+
+  return new ImageryLayer(
+    new OpenStreetMapImageryProvider({
+      url: "https://tile.openstreetmap.org/",
+      credit: "(c) OpenStreetMap contributors"
+    })
+  );
 }
 
 function addCellEntity(viewer: Viewer, cell: CellAggregate) {
